@@ -1,0 +1,23 @@
+# Binary executables & PyInstaller artifacts (Exceeds GitHub 100MB limit)
+*.exe
+dist/
+build/
+*.spec
+
+# Python & bytecode cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Temporary & test files
+test_input.pdf
+test_output.pdf
+*.log
+
+# Windows / OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
