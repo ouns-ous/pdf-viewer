@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QTextEdit, QPlainTextEdit
 )
 from PyQt6.QtGui import QAction, QActionGroup, QIcon, QKeySequence, QColor, QFont, QPixmap, QPainter, QPen, QBrush, QCursor
-from PyQt6.QtCore import Qt, QSize, QTimer
+from PyQt6.QtCore import Qt, QSize, QTimer, pyqtSignal
 
 from styles import WPS_THEME
 from icons import (
@@ -52,6 +52,107 @@ def create_ribbon_sep() -> QFrame:
     sep.setFrameShape(QFrame.Shape.VLine)
     sep.setFrameShadow(QFrame.Shadow.Plain)
     return sep
+
+
+class PDFFindBar(QFrame):
+    """Modern WPS-style docked inline search bar with match navigation."""
+    prev_requested = pyqtSignal()
+    next_requested = pyqtSignal()
+    search_requested = pyqtSignal(str)
+    closed = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("pdfFindBar")
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setSpacing(8)
+
+        lbl_icon = QLabel()
+        lbl_icon.setPixmap(icon_search(16, "#64748b").pixmap(16, 16))
+        layout.addWidget(lbl_icon)
+
+        self.input_search = QLineEdit()
+        self.input_search.setPlaceholderText("Find in document... (Enter: Next, Shift+Enter: Prev, Esc: Close)")
+        self.input_search.setObjectName("findInput")
+        self.input_search.returnPressed.connect(self._on_return_pressed)
+        self.input_search.textChanged.connect(self._on_text_changed)
+        layout.addWidget(self.input_search, 1)
+
+        self.lbl_matches = QLabel("0/0")
+        self.lbl_matches.setObjectName("findMatchCount")
+        self.lbl_matches.setStyleSheet("color: #64748b; font-size: 11px; font-weight: 500; padding: 0 4px;")
+        layout.addWidget(self.lbl_matches)
+
+        self.btn_prev = QToolButton()
+        self.btn_prev.setText("<")
+        self.btn_prev.setToolTip("Previous match (Shift+Enter)")
+        self.btn_prev.setObjectName("findNavBtn")
+        self.btn_prev.clicked.connect(self.prev_requested.emit)
+        layout.addWidget(self.btn_prev)
+
+        self.btn_next = QToolButton()
+        self.btn_next.setText(">")
+        self.btn_next.setToolTip("Next match (Enter)")
+        self.btn_next.setObjectName("findNavBtn")
+        self.btn_next.clicked.connect(self.next_requested.emit)
+        layout.addWidget(self.btn_next)
+
+        btn_close = QToolButton()
+        btn_close.setText("x")
+        btn_close.setToolTip("Close find bar (Esc)")
+        btn_close.setObjectName("findCloseBtn")
+        btn_close.clicked.connect(self.close_bar)
+        layout.addWidget(btn_close)
+
+        self.setStyleSheet("""
+            QFrame#pdfFindBar {
+                background: #f8fafc;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            QLineEdit#findInput {
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 4px 8px;
+                background: #ffffff;
+                color: #0f172a;
+                font-size: 12px;
+            }
+            QLineEdit#findInput:focus {
+                border: 1.5px solid #2563eb;
+            }
+            QToolButton#findNavBtn, QToolButton#findCloseBtn {
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                background: #ffffff;
+                font-weight: bold;
+                padding: 2px 7px;
+                color: #475569;
+            }
+            QToolButton#findNavBtn:hover, QToolButton#findCloseBtn:hover {
+                background: #f1f5f9;
+                color: #0f172a;
+            }
+        """)
+
+    def _on_return_pressed(self):
+        if QApplication.keyboardModifiers() & Qt.KeyboardModifier.ShiftModifier:
+            self.prev_requested.emit()
+        else:
+            self.next_requested.emit()
+
+    def _on_text_changed(self, text):
+        self.search_requested.emit(text)
+
+    def close_bar(self):
+        self.hide()
+        self.closed.emit()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.close_bar()
+            return
+        super().keyPressEvent(event)
 
 
 
@@ -121,6 +222,9 @@ class PDFEditorApp(QMainWindow):
         self.current_file_path = None
         self.current_page_idx = 0
         self.is_fullscreen_mode = False
+        self.search_query = ""
+        self.search_matches = []
+        self.current_match_idx = -1
 
         self._init_ui()
 
@@ -198,16 +302,31 @@ class PDFEditorApp(QMainWindow):
         self.btn_rail_search.setObjectName("wpsRailBtn")
         self.btn_rail_search.setIcon(icon_search(20, "#475569"))
         self.btn_rail_search.setToolTip("Search in Document (Ctrl+F)")
-        self.btn_rail_search.clicked.connect(self._find_text_dialog)
+        self.btn_rail_search.clicked.connect(self.show_find_bar)
 
         rail_layout.addWidget(self.btn_rail_thumbs)
         rail_layout.addWidget(self.btn_rail_search)
         doc_layout.addWidget(self.left_rail)
 
+        # Canvas Wrapper with Docked Find Bar
+        canvas_wrapper = QWidget()
+        canvas_wrapper_layout = QVBoxLayout(canvas_wrapper)
+        canvas_wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        canvas_wrapper_layout.setSpacing(0)
+
+        self.find_bar = PDFFindBar(self)
+        self.find_bar.hide()
+        self.find_bar.prev_requested.connect(self._find_prev)
+        self.find_bar.next_requested.connect(self._find_next)
+        self.find_bar.search_requested.connect(self._perform_search)
+        self.find_bar.closed.connect(lambda: self.canvas.setFocus())
+        canvas_wrapper_layout.addWidget(self.find_bar)
+        canvas_wrapper_layout.addWidget(self.canvas)
+
         # Splitter: Sidebar + Canvas
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.addWidget(self.sidebar)
-        self.splitter.addWidget(self.canvas)
+        self.splitter.addWidget(canvas_wrapper)
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
         doc_layout.addWidget(self.splitter)
@@ -368,6 +487,12 @@ class PDFEditorApp(QMainWindow):
         self.act_fit_page = QAction(icon_fit_page(16), "Fit Page", self, triggered=self.canvas.fit_page)
         self.act_fit_page.setShortcut(QKeySequence("Ctrl+1"))
         self.act_fit_page.setToolTip("Fit Whole Page in View (Ctrl+1)")
+
+        # Search / Find
+        self.act_find = QAction(icon_search(16), "Find...", self, triggered=self.show_find_bar)
+        self.act_find.setShortcut(QKeySequence.StandardKey.Find)
+        self.act_find.setToolTip("Find in Document (Ctrl+F)")
+        self.addAction(self.act_find)
 
     def _create_wps_top_titlebar(self):
         """Top Bar 1: Home Pill Tab, Document Tab [P Title x], and [+] New Tab."""
@@ -1233,24 +1358,69 @@ class PDFEditorApp(QMainWindow):
         except Exception as e:
             QMessageBox.information(self, "Print Notice", f"Windows printing initiated. ({str(e)})")
 
-    def _find_text_dialog(self):
-        """Quick text search across document pages."""
+    # ------------------ Interactive Search ------------------
+
+    def show_find_bar(self):
+        """Show and focus interactive find bar."""
         if not self.doc:
             return
-        query, ok = QInputDialog.getText(self, "Find in Document", "Enter text to search:")
-        if ok and query.strip():
-            query = query.strip().lower()
-            matching_pages = []
-            for idx, page in enumerate(self.doc):
-                if query in page.get_text().lower():
-                    matching_pages.append(idx)
-            if matching_pages:
-                # Go to first match
-                first_match = matching_pages[0]
-                self.go_to_page(first_match)
-                self._show_status_message(f"Found '{query}' on {len(matching_pages)} page(s). First match: Page {first_match + 1}")
-            else:
-                QMessageBox.information(self, "Find", f"No occurrences of '{query}' found.")
+        self.find_bar.show()
+        self.find_bar.input_search.setFocus()
+        self.find_bar.input_search.selectAll()
+        if self.find_bar.input_search.text():
+            self._perform_search(self.find_bar.input_search.text())
+
+    def _perform_search(self, query: str):
+        query = query.strip().lower()
+        self.search_query = query
+        self.search_matches = []
+        self.current_match_idx = -1
+
+        if not self.doc or not query:
+            self.find_bar.lbl_matches.setText("0/0")
+            return
+
+        for idx, page in enumerate(self.doc):
+            text = page.get_text().lower()
+            count = text.count(query)
+            if count > 0:
+                for _ in range(count):
+                    self.search_matches.append(idx)
+
+        total = len(self.search_matches)
+        if total > 0:
+            nearest_idx = 0
+            for i, p_idx in enumerate(self.search_matches):
+                if p_idx >= self.current_page_idx:
+                    nearest_idx = i
+                    break
+            self.current_match_idx = nearest_idx
+            self.find_bar.lbl_matches.setText(f"{self.current_match_idx + 1}/{total}")
+            self.go_to_page(self.search_matches[self.current_match_idx])
+            self._show_status_message(f"Found '{query}' ({self.current_match_idx + 1}/{total})")
+        else:
+            self.find_bar.lbl_matches.setText("0 matches")
+            self._show_status_message(f"No occurrences of '{query}' found")
+
+    def _find_next(self):
+        if not self.search_matches:
+            if self.find_bar.input_search.text():
+                self._perform_search(self.find_bar.input_search.text())
+            return
+        self.current_match_idx = (self.current_match_idx + 1) % len(self.search_matches)
+        self.find_bar.lbl_matches.setText(f"{self.current_match_idx + 1}/{len(self.search_matches)}")
+        self.go_to_page(self.search_matches[self.current_match_idx])
+        self._show_status_message(f"Match {self.current_match_idx + 1} of {len(self.search_matches)}")
+
+    def _find_prev(self):
+        if not self.search_matches:
+            if self.find_bar.input_search.text():
+                self._perform_search(self.find_bar.input_search.text())
+            return
+        self.current_match_idx = (self.current_match_idx - 1) % len(self.search_matches)
+        self.find_bar.lbl_matches.setText(f"{self.current_match_idx + 1}/{len(self.search_matches)}")
+        self.go_to_page(self.search_matches[self.current_match_idx])
+        self._show_status_message(f"Match {self.current_match_idx + 1} of {len(self.search_matches)}")
 
     # ------------------ Save & Export ------------------
 
