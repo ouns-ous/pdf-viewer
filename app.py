@@ -10,7 +10,8 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QStatusBar, QFileDialog, QMessageBox, QLabel,
     QSpinBox, QComboBox, QColorDialog, QSplitter, QStackedWidget,
-    QPushButton, QFrame, QMenu, QToolButton, QButtonGroup, QSlider, QInputDialog
+    QPushButton, QFrame, QMenu, QToolButton, QButtonGroup, QSlider, QInputDialog,
+    QLineEdit, QTextEdit, QPlainTextEdit
 )
 from PyQt6.QtGui import QAction, QActionGroup, QIcon, QKeySequence, QColor, QFont, QPixmap, QPainter, QPen, QBrush, QCursor
 from PyQt6.QtCore import Qt, QSize, QTimer
@@ -235,34 +236,47 @@ class PDFEditorApp(QMainWindow):
         # File Operations
         self.act_new = QAction(icon_add_page(16), "New Blank Document", self, triggered=self.new_blank_document)
         self.act_new.setShortcut(QKeySequence.StandardKey.New)
+        self.act_new.setToolTip("New Blank Document (Ctrl+N)")
 
         self.act_open = QAction(icon_open_folder(16), "Open...", self, triggered=self.open_pdf_dialog)
         self.act_open.setShortcut(QKeySequence.StandardKey.Open)
+        self.act_open.setToolTip("Open PDF File (Ctrl+O)")
 
         self.act_save = QAction(icon_save_disk(16), "Save", self, triggered=self.save_document)
         self.act_save.setShortcut(QKeySequence.StandardKey.Save)
+        self.act_save.setToolTip("Save Document (Ctrl+S)")
 
         self.act_save_as = QAction("Save As...", self, triggered=self.save_document_as)
         self.act_save_as.setShortcut(QKeySequence.StandardKey.SaveAs)
+        self.act_save_as.setToolTip("Save As New File (Ctrl+Shift+S)")
 
         self.act_export_images = QAction(icon_export_images(16), "Export Pages as PNG...", self, triggered=self.export_as_images)
+        self.act_export_images.setToolTip("Export Pages as High-Res PNG Images")
+
         self.act_extract_text = QAction("Extract Text to File...", self, triggered=self.extract_text)
+        self.act_extract_text.setToolTip("Extract All Text from Document to .txt File")
+
         self.act_print = QAction(icon_print(16), "Print...", self, triggered=self.print_document)
         self.act_print.setShortcut(QKeySequence.StandardKey.Print)
+        self.act_print.setToolTip("Print Document (Ctrl+P)")
 
         self.act_close_doc = QAction("Close Document", self, triggered=self.show_welcome_screen)
-        self.act_close_doc.setShortcut(QKeySequence.StandardKey.Close)
+        self.act_close_doc.setShortcut(QKeySequence("Ctrl+W"))
+        self.act_close_doc.setToolTip("Close Document (Ctrl+W)")
 
         # Undo / Redo
         self.act_undo = QAction(icon_undo(16), "Undo", self, triggered=self.canvas.undo)
         self.act_undo.setShortcut(QKeySequence.StandardKey.Undo)
+        self.act_undo.setToolTip("Undo Annotation (Ctrl+Z)")
 
         self.act_redo = QAction(icon_redo(16), "Redo", self, triggered=self.canvas.redo)
         self.act_redo.setShortcut(QKeySequence.StandardKey.Redo)
+        self.act_redo.setToolTip("Redo Annotation (Ctrl+Y)")
 
         # Full Screen
         self.act_fullscreen = QAction(icon_fullscreen(16), "Fullscreen", self, triggered=self.toggle_fullscreen)
         self.act_fullscreen.setShortcut(QKeySequence("F11"))
+        self.act_fullscreen.setToolTip("Toggle Fullscreen Mode (F11)")
 
         # Mutually Exclusive Editing Tools
         self.tool_group = QActionGroup(self)
@@ -270,51 +284,90 @@ class PDFEditorApp(QMainWindow):
 
         self.act_select = QAction(icon_select(16), "Select Tool", self, checkable=True, triggered=lambda: self._switch_tool(ToolMode.SELECT))
         self.act_select.setChecked(True)
+        self.act_select.setToolTip("Select Tool (V) - Select, move and edit elements")
         self.tool_group.addAction(self.act_select)
 
         self.act_hand = QAction(icon_hand(16), "Hand Tool", self, checkable=True, triggered=lambda: self._switch_tool(ToolMode.HAND))
+        self.act_hand.setToolTip("Hand Tool (H) - Pan across document")
         self.tool_group.addAction(self.act_hand)
 
         self.act_text = QAction(icon_text(16), "Edit Text", self, checkable=True, triggered=lambda: self._switch_tool(ToolMode.TEXT))
+        self.act_text.setToolTip("Add / Edit Text (T) - Click anywhere on page to type")
         self.tool_group.addAction(self.act_text)
 
         self.act_pen = QAction(icon_pen(16), "Pen", self, checkable=True, triggered=lambda: self._switch_tool(ToolMode.PEN))
+        self.act_pen.setToolTip("Pen Drawing (P) - Freehand draw notes")
         self.tool_group.addAction(self.act_pen)
 
         self.act_highlight = QAction(icon_highlight(16), "Annotate", self, checkable=True, triggered=lambda: self._switch_tool(ToolMode.HIGHLIGHTER))
+        self.act_highlight.setToolTip("Highlighter (A) - Highlight text and areas")
         self.tool_group.addAction(self.act_highlight)
 
         self.act_eraser = QAction(icon_eraser(16), "Eraser", self, checkable=True, triggered=lambda: self._switch_tool(ToolMode.ERASER))
+        self.act_eraser.setToolTip("Eraser (E) - Click annotation to erase")
         self.tool_group.addAction(self.act_eraser)
 
         self.act_rect = QAction(icon_rect(16), "Rectangle", self, checkable=True, triggered=lambda: self._switch_tool(ToolMode.RECTANGLE))
+        self.act_rect.setToolTip("Rectangle Tool (R) - Draw outline boxes")
         self.tool_group.addAction(self.act_rect)
 
         # Actions
         self.act_sign = QAction(icon_sign(16), "Sign", self, triggered=self._insert_signature_dialog)
+        self.act_sign.setToolTip("Insert Electronic Signature")
         self.act_image = QAction(icon_image(16), "Edit Picture", self, triggered=self._insert_image_dialog)
+        self.act_image.setToolTip("Insert Image or Stamp into Page")
 
         # Page Actions
         self.act_rot_cw = QAction(icon_rotate_cw(16), "Clockwise", self, triggered=self.rotate_clockwise)
+        self.act_rot_cw.setShortcut(QKeySequence("Ctrl+R"))
+        self.act_rot_cw.setToolTip("Rotate Page Clockwise 90° (Ctrl+R)")
+
         self.act_rot_ccw = QAction(icon_rotate_ccw(16), "Anticlockwise", self, triggered=self.rotate_anticlockwise)
+        self.act_rot_ccw.setShortcut(QKeySequence("Ctrl+Shift+R"))
+        self.act_rot_ccw.setToolTip("Rotate Page Counter-Clockwise 90° (Ctrl+Shift+R)")
+
         self.act_rot_180 = QAction(icon_rotate_cw(16), "Rotate 180°", self, triggered=self.rotate_180)
+        self.act_rot_180.setToolTip("Rotate Page 180 Degrees")
+
         self.act_delete_page = QAction(icon_delete(16), "Delete Pages", self, triggered=lambda: self.delete_page(self.current_page_idx))
+        self.act_delete_page.setToolTip("Delete Current Page")
+
         self.act_add_page = QAction(icon_add_page(16), "Insert Pages", self, triggered=self.add_blank_page)
+        self.act_add_page.setToolTip("Insert New Blank Page")
+
         self.act_extract_page = QAction(icon_add_page(16), "Extract Page", self, triggered=self.extract_current_page)
+        self.act_extract_page.setToolTip("Extract Current Page to New File")
 
         # Utilities
         self.act_compress = QAction(icon_compress(16), "PDF Compressor", self, triggered=self.compress_pdf)
+        self.act_compress.setToolTip("Compress PDF to Reduce File Size")
+
         self.act_merge = QAction(icon_merge(16), "Merge PDF", self, triggered=self._open_merge_dialog)
+        self.act_merge.setToolTip("Merge Multiple PDF Files Together")
+
         self.act_split = QAction(icon_split(16), "Split PDF", self, triggered=self._open_split_dialog)
+        self.act_split.setToolTip("Split PDF Document into Separate Pages")
 
         # Zoom
         self.act_zoom_in = QAction(icon_zoom_in(16), "Zoom In", self, triggered=self.canvas.zoom_in)
         self.act_zoom_in.setShortcut(QKeySequence.StandardKey.ZoomIn)
+        self.act_zoom_in.setToolTip("Zoom In (Ctrl++)")
+
         self.act_zoom_out = QAction(icon_zoom_out(16), "Zoom Out", self, triggered=self.canvas.zoom_out)
         self.act_zoom_out.setShortcut(QKeySequence.StandardKey.ZoomOut)
+        self.act_zoom_out.setToolTip("Zoom Out (Ctrl+-)")
+
         self.act_zoom_actual = QAction(icon_zoom_actual(16), "1:1", self, triggered=self.canvas.reset_zoom)
+        self.act_zoom_actual.setShortcut(QKeySequence("Ctrl+0"))
+        self.act_zoom_actual.setToolTip("Actual Size 100% (Ctrl+0)")
+
         self.act_fit_width = QAction(icon_fit_width(16), "Fit Width", self, triggered=self.canvas.fit_width)
+        self.act_fit_width.setShortcut(QKeySequence("Ctrl+2"))
+        self.act_fit_width.setToolTip("Fit Width (Ctrl+2)")
+
         self.act_fit_page = QAction(icon_fit_page(16), "Fit Page", self, triggered=self.canvas.fit_page)
+        self.act_fit_page.setShortcut(QKeySequence("Ctrl+1"))
+        self.act_fit_page.setToolTip("Fit Whole Page in View (Ctrl+1)")
 
     def _create_wps_top_titlebar(self):
         """Top Bar 1: Home Pill Tab, Document Tab [P Title x], and [+] New Tab."""
@@ -1290,6 +1343,37 @@ class PDFEditorApp(QMainWindow):
             return
         dlg = SplitDialog(self.current_file_path, len(self.doc), self)
         dlg.exec()
+
+    # ------------------ Shortcuts & Key Handling ------------------
+
+    def keyPressEvent(self, event):
+        focus_w = QApplication.focusWidget()
+        if not isinstance(focus_w, (QLineEdit, QTextEdit, QPlainTextEdit)):
+            key = event.key()
+            mods = event.modifiers()
+            if not (mods & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)):
+                if key == Qt.Key.Key_V:
+                    self.act_select.trigger()
+                    return
+                elif key == Qt.Key.Key_H:
+                    self.act_hand.trigger()
+                    return
+                elif key == Qt.Key.Key_T:
+                    self.act_text.trigger()
+                    return
+                elif key == Qt.Key.Key_P:
+                    self.act_pen.trigger()
+                    return
+                elif key == Qt.Key.Key_A:
+                    self.act_highlight.trigger()
+                    return
+                elif key == Qt.Key.Key_E:
+                    self.act_eraser.trigger()
+                    return
+                elif key == Qt.Key.Key_R:
+                    self.act_rect.trigger()
+                    return
+        super().keyPressEvent(event)
 
     # ------------------ Drag & Drop ------------------
 
