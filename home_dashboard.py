@@ -512,10 +512,16 @@ class WPSHomeDashboardWidget(QWidget):
             for url in event.mimeData().urls():
                 if url.toLocalFile().lower().endswith(".pdf"):
                     event.acceptProposedAction()
+                    self.drop_zone.setStyleSheet("QFrame#modernDropZone { border: 2px dashed #2563eb; background: #eff6ff; }")
                     return
         event.ignore()
 
+    def dragLeaveEvent(self, event):
+        self.drop_zone.setStyleSheet("")
+        super().dragLeaveEvent(event)
+
     def dropEvent(self, event):
+        self.drop_zone.setStyleSheet("")
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
             if file_path.lower().endswith(".pdf"):

@@ -919,9 +919,14 @@ class PDFEditorApp(QMainWindow):
         """WPS-style Bottom Status Bar: Doc info, Page Jumper, Zoom controls."""
         sb = self.statusBar()
 
-        # Left: Doc info
+        # Left: Doc info & shortcut guidance
         self.lbl_status_file = QLabel("Ready")
-        sb.addWidget(self.lbl_status_file, 1)
+        self.lbl_status_file.setStyleSheet("color: #334155; font-weight: 500;")
+        sb.addWidget(self.lbl_status_file)
+
+        self.lbl_status_tip = QLabel("• V: Select • H: Hand • T: Text • Ctrl+F: Find • F11: Fullscreen")
+        self.lbl_status_tip.setStyleSheet("color: #94a3b8; font-size: 11px; margin-left: 8px;")
+        sb.addWidget(self.lbl_status_tip, 1)
 
         # Center: Page Jumper (WPS Style: ‹ Page 1 of N ›)
         page_widget = QWidget()
@@ -1044,15 +1049,47 @@ class PDFEditorApp(QMainWindow):
         self.banner.raise_()
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Escape and self.is_fullscreen_mode:
-            self.toggle_fullscreen()
-            return
+        if event.key() == Qt.Key.Key_Escape:
+            if self.is_fullscreen_mode:
+                self.toggle_fullscreen()
+                return
+            elif hasattr(self, 'find_bar') and self.find_bar.isVisible():
+                self.find_bar.close_bar()
+                return
         elif event.key() == Qt.Key.Key_F11:
             self.toggle_fullscreen()
             return
         elif event.matches(QKeySequence.StandardKey.Find):
-            self._find_text_dialog()
+            self.show_find_bar()
             return
+
+        focus_w = QApplication.focusWidget()
+        if not isinstance(focus_w, (QLineEdit, QTextEdit, QPlainTextEdit)):
+            key = event.key()
+            mods = event.modifiers()
+            if not (mods & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)):
+                if key == Qt.Key.Key_V:
+                    self.act_select.trigger()
+                    return
+                elif key == Qt.Key.Key_H:
+                    self.act_hand.trigger()
+                    return
+                elif key == Qt.Key.Key_T:
+                    self.act_text.trigger()
+                    return
+                elif key == Qt.Key.Key_P:
+                    self.act_pen.trigger()
+                    return
+                elif key == Qt.Key.Key_A:
+                    self.act_highlight.trigger()
+                    return
+                elif key == Qt.Key.Key_E:
+                    self.act_eraser.trigger()
+                    return
+                elif key == Qt.Key.Key_R:
+                    self.act_rect.trigger()
+                    return
+
         super().keyPressEvent(event)
 
     # ------------------ View & Tools ------------------
@@ -1514,37 +1551,6 @@ class PDFEditorApp(QMainWindow):
         dlg = SplitDialog(self.current_file_path, len(self.doc), self)
         dlg.exec()
 
-    # ------------------ Shortcuts & Key Handling ------------------
-
-    def keyPressEvent(self, event):
-        focus_w = QApplication.focusWidget()
-        if not isinstance(focus_w, (QLineEdit, QTextEdit, QPlainTextEdit)):
-            key = event.key()
-            mods = event.modifiers()
-            if not (mods & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)):
-                if key == Qt.Key.Key_V:
-                    self.act_select.trigger()
-                    return
-                elif key == Qt.Key.Key_H:
-                    self.act_hand.trigger()
-                    return
-                elif key == Qt.Key.Key_T:
-                    self.act_text.trigger()
-                    return
-                elif key == Qt.Key.Key_P:
-                    self.act_pen.trigger()
-                    return
-                elif key == Qt.Key.Key_A:
-                    self.act_highlight.trigger()
-                    return
-                elif key == Qt.Key.Key_E:
-                    self.act_eraser.trigger()
-                    return
-                elif key == Qt.Key.Key_R:
-                    self.act_rect.trigger()
-                    return
-        super().keyPressEvent(event)
-
     # ------------------ Drag & Drop ------------------
 
     def dragEnterEvent(self, event):
@@ -1552,13 +1558,19 @@ class PDFEditorApp(QMainWindow):
             for url in event.mimeData().urls():
                 if url.toLocalFile().lower().endswith(".pdf"):
                     event.acceptProposedAction()
+                    self._show_status_message("Release mouse to open PDF document...")
                     return
         event.ignore()
+
+    def dragLeaveEvent(self, event):
+        self.statusBar().clearMessage()
+        super().dragLeaveEvent(event)
 
     def dropEvent(self, event):
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
             if file_path.lower().endswith(".pdf"):
+                self._show_status_message(f"Opening {os.path.basename(file_path)}...")
                 self.load_pdf(file_path)
                 event.acceptProposedAction()
                 return
