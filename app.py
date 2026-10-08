@@ -133,8 +133,9 @@ class PDFEditorApp(QMainWindow):
 
         modern_font = QFont()
         modern_font.setFamilies(["Segoe UI Variable Text", "Segoe UI", "Inter", "sans-serif"])
-        modern_font.setPointSize(9)
+        modern_font.setPointSize(10)
         modern_font.setStyleHint(QFont.StyleHint.SansSerif)
+        modern_font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
         self.setFont(modern_font)
 
         # Central Root Layout
@@ -1317,8 +1318,9 @@ def main():
     # Global modern typography
     modern_font = QFont()
     modern_font.setFamilies(["Segoe UI Variable Text", "Segoe UI", "Inter", "sans-serif"])
-    modern_font.setPointSize(9)
+    modern_font.setPointSize(10)
     modern_font.setStyleHint(QFont.StyleHint.SansSerif)
+    modern_font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
     app.setFont(modern_font)
 
     initial_pdf = sys.argv[1] if len(sys.argv) > 1 else None

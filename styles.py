@@ -13,12 +13,23 @@ WPS_THEME = """
 QMainWindow, QDialog {
     background-color: #f8fafc;
     color: #1e293b;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 QWidget {
     color: #334155;
-    font-size: 12px;
+    font-size: 13px;
+}
+
+/* User-Friendly Modern Dark Pill Tooltip */
+QToolTip {
+    background-color: #0f172a;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 500;
 }
 
 /* ==========================================================
@@ -196,7 +207,7 @@ QToolButton {
     border: 1px solid transparent;
     border-radius: 6px;
     padding: 4px 8px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     min-height: 28px;
 }
@@ -225,7 +236,7 @@ QPushButton {
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     padding: 4px 10px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     min-height: 28px;
 }
@@ -264,7 +275,7 @@ QComboBox, QSpinBox, QLineEdit {
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     padding: 4px 8px;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 QComboBox:hover, QSpinBox:hover, QLineEdit:hover {
@@ -499,7 +510,8 @@ QStatusBar {
     color: #64748b;
     border-top: 1px solid #e2e8f0;
     padding: 2px 10px;
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 500;
 }
 
 /* Floating Fullscreen Banner */
